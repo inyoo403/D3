@@ -30,3 +30,5 @@ Implement the fundamental map-based gameplay loop: deterministic token spawning,
 - [x] Enable crafting: merge two equal-value tokens → double value
 - [x] Disallow placement on empty or mismatched cells
 - [x] Verify successful deployment on GitHub Pages
+
+### D3.a complete
