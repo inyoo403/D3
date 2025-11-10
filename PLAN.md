@@ -22,10 +22,10 @@ Implement the fundamental map-based gameplay loop: deterministic token spawning,
 - [x] Initialize Leaflet map centered on the classroom location
 - [x] Display player marker at the fixed position
 - [x] Implement cell indexing functions (lat/lng ↔ i/j grid coordinates)
-- [ ] Render full grid of cells
-- [ ] Implement deterministic spawn logic using the luck function
-- [ ] Display cell contents visibly without requiring clicks
-- [ ] Restrict interaction range to nearby cells (within 3-cell radius)
+- [x] Render full grid of cells
+- [x] Implement deterministic spawn logic using the luck function
+- [x] Display cell contents visibly without requiring clicks
+- [x] Restrict interaction range to nearby cells (within 3-cell radius)
 - [ ] Add single-slot inventory showing the token in hand
 - [ ] Enable crafting: merge two equal-value tokens → double value
 - [ ] Disallow placement on empty or mismatched cells
