@@ -11,9 +11,27 @@
   height: 80vh;
 }
 
+#hud {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  z-index: 1000;
+  user-select: none;
+}
+
 .cellLabelWrap {
   background: transparent !important;
 }
+
+.cellLabelWrap {
+  pointer-events: none;
+}
+
 .cellLabel {
   font-size: 12px;
   font-weight: 700;
