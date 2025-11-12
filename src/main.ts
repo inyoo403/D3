@@ -11,7 +11,7 @@ const START_LATLNG = leaflet.latLng(
 );
 const CELL_DEG = 1e-4;
 const INTERACT_RANGE = 3;
-const MAX_RADIUS = 20;
+const TARGET = 32;
 
 const hud = document.createElement("div");
 hud.id = "hud";
@@ -25,6 +25,10 @@ let inHand: number | null = null;
 const overrides = new Map<string, number>();
 function key(i: number, j: number) {
   return `${i},${j}`;
+}
+
+function clearVisibleState() {
+  overrides.clear();
 }
 
 function updateHUD() {
@@ -147,10 +151,10 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
   const jMinView = Math.floor(west / CELL_DEG) - 1;
   const jMaxView = Math.floor(east / CELL_DEG) + 1;
 
-  const iMin = Math.max(playerIJ.i - MAX_RADIUS, iMinView);
-  const iMax = Math.min(playerIJ.i + MAX_RADIUS, iMaxView);
-  const jMin = Math.max(playerIJ.j - MAX_RADIUS, jMinView);
-  const jMax = Math.min(playerIJ.j + MAX_RADIUS, jMaxView);
+  const iMin = iMinView;
+  const iMax = iMaxView;
+  const jMin = jMinView;
+  const jMax = jMaxView;
 
   for (let i = iMin; i <= iMax; i++) {
     for (let j = jMin; j <= jMax; j++) {
@@ -186,7 +190,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
           inHand = null;
           updateHUD();
           renderGrid(map.getBounds());
-          if (newVal >= 16) {
+          if (newVal >= TARGET) {
             console.log("You’ve crafted a token of value", newVal);
             alert(`You’ve reached a token value of ${newVal}.`);
           }
@@ -224,6 +228,7 @@ function movePlayer(di: number, dj: number) {
   playerIJ = { i: playerIJ.i + di, j: playerIJ.j + dj };
   playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
   map.setView(playerMarker.getLatLng());
+  clearVisibleState();
   renderGrid(map.getBounds());
   updateHUD();
 }

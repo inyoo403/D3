@@ -40,7 +40,7 @@ Support gameplay anywhere in the real world
 - [x] Add UI buttons (N, S, E, W) to simulate player movement.
 - [x] Implement movePlayer function to update playerIJ coordinates.
 - [x] Use earth-spanning coordinates anchored at Null Island.
-- [ ] Implement "memoryless" cells
-- [ ] Update renderGrid to draw cells based on map bounds, not player radius.
+- [x] Implement "memoryless" cells
+- [x] Increase victory TARGET to 32 to require farming
+- [x] Update renderGrid to draw cells based on map bounds, not player radius.
 - [ ] Implement camera logic to pan only when player hits map boundary.
-- [ ] Increase victory TARGET to 32 to require farming.
