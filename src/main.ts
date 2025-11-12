@@ -226,8 +226,34 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
 
 function movePlayer(di: number, dj: number) {
   playerIJ = { i: playerIJ.i + di, j: playerIJ.j + dj };
-  playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
-  map.setView(playerMarker.getLatLng());
+  const playerLatLng = cellCenter(playerIJ.i, playerIJ.j);
+  playerMarker.setLatLng(playerLatLng);
+
+  const bounds = map.getBounds();
+  let edgeLatLng: leaflet.LatLng | null = null;
+
+  if (di > 0) {
+    edgeLatLng = leaflet.latLng(
+      cellCenter(playerIJ.i + INTERACT_RANGE, playerIJ.j),
+    );
+  } else if (di < 0) {
+    edgeLatLng = leaflet.latLng(
+      cellCenter(playerIJ.i - INTERACT_RANGE, playerIJ.j),
+    );
+  } else if (dj > 0) {
+    edgeLatLng = leaflet.latLng(
+      cellCenter(playerIJ.i, playerIJ.j + INTERACT_RANGE),
+    );
+  } else if (dj < 0) {
+    edgeLatLng = leaflet.latLng(
+      cellCenter(playerIJ.i, playerIJ.j - INTERACT_RANGE),
+    );
+  }
+
+  if (edgeLatLng && !bounds.contains(edgeLatLng)) {
+    map.panTo(playerLatLng);
+  }
+
   clearVisibleState();
   renderGrid(map.getBounds());
   updateHUD();

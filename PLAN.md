@@ -2,7 +2,7 @@
 
 ## Game Design Vision
 
-{a few-sentence description of the game mechanics}
+This game is a map-based crafting adventure inspired by Pokémon Go and Threes. Players explore a real-world grid, collecting randomly generated tokens (e.g., 1, 2, 4) from nearby locations.
 
 ## Technologies
 
@@ -43,4 +43,6 @@ Support gameplay anywhere in the real world
 - [x] Implement "memoryless" cells
 - [x] Increase victory TARGET to 32 to require farming
 - [x] Update renderGrid to draw cells based on map bounds, not player radius.
-- [ ] Implement camera logic to pan only when player hits map boundary.
+- [x] Implement camera logic to pan only when player hits map boundary.
+
+### D3.b complete
