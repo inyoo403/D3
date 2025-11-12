@@ -10,9 +10,7 @@
 - Deno and Vite for building
 - GitHub Actions + GitHub Pages for deployment automation
 
-## D3.a — Core Mechanics
-
-### Goals
+## D3.a - Core Mechanics
 
 Implement the fundamental map-based gameplay loop: deterministic token spawning, local interaction, and basic crafting.
 
@@ -32,3 +30,17 @@ Implement the fundamental map-based gameplay loop: deterministic token spawning,
 - [x] Verify successful deployment on GitHub Pages
 
 ### D3.a complete
+
+## D3.b - Globe-spanning Gameplay
+
+Support gameplay anywhere in the real world
+
+### steps
+
+- [x] Add UI buttons (N, S, E, W) to simulate player movement.
+- [x] Implement movePlayer function to update playerIJ coordinates.
+- [x] Use earth-spanning coordinates anchored at Null Island.
+- [ ] Implement "memoryless" cells
+- [ ] Update renderGrid to draw cells based on map bounds, not player radius.
+- [ ] Implement camera logic to pan only when player hits map boundary.
+- [ ] Increase victory TARGET to 32 to require farming.

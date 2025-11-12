@@ -5,7 +5,7 @@ import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
 import "./style.css";
 
-const CLASSROOM_LATLNG = leaflet.latLng(
+const START_LATLNG = leaflet.latLng(
   36.997936938057016,
   -122.05703507501151,
 );
@@ -17,13 +17,20 @@ const hud = document.createElement("div");
 hud.id = "hud";
 document.body.appendChild(hud);
 
+const controls = document.createElement("div");
+controls.id = "controls";
+document.body.appendChild(controls);
+
 let inHand: number | null = null;
 const overrides = new Map<string, number>();
 function key(i: number, j: number) {
   return `${i},${j}`;
 }
+
 function updateHUD() {
-  hud.textContent = inHand == null ? "In hand: —" : `In hand: ${inHand}`;
+  hud.textContent = `In hand: ${
+    inHand == null ? "—" : inHand
+  }  Pos: (${playerIJ.i}, ${playerIJ.j})`;
 }
 
 function ensureMapContainer(): HTMLDivElement {
@@ -37,7 +44,7 @@ function ensureMapContainer(): HTMLDivElement {
 }
 
 const map = leaflet.map(ensureMapContainer(), {
-  center: CLASSROOM_LATLNG,
+  center: START_LATLNG,
   zoom: 19,
   maxZoom: 19,
   zoomControl: true,
@@ -59,16 +66,6 @@ leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxNativeZoom: 19,
 }).addTo(map);
 
-leaflet
-  .marker(CLASSROOM_LATLNG, { interactive: false, pane: "player" })
-  .addTo(map)
-  .bindTooltip("You", {
-    permanent: true,
-    direction: "top",
-    offset: [-16, -15],
-    pane: "player",
-  });
-
 export type IJ = { i: number; j: number };
 export function toIJ(lat: number, lng: number): IJ {
   return { i: Math.floor(lat / CELL_DEG), j: Math.floor(lng / CELL_DEG) };
@@ -86,6 +83,21 @@ export function cellBounds(
 export function cellCenter(i: number, j: number): leaflet.LatLngExpression {
   return [(i + 0.5) * CELL_DEG, (j + 0.5) * CELL_DEG];
 }
+
+let playerIJ: IJ = toIJ(START_LATLNG.lat, START_LATLNG.lng);
+
+const playerMarker = leaflet
+  .marker(cellCenter(playerIJ.i, playerIJ.j), {
+    interactive: false,
+    pane: "player",
+  })
+  .addTo(map)
+  .bindTooltip("You", {
+    permanent: true,
+    direction: "top",
+    offset: [-16, -15],
+    pane: "player",
+  });
 
 const cellLayer = leaflet.layerGroup().addTo(map);
 const labelLayer = leaflet.layerGroup().addTo(map);
@@ -135,15 +147,14 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
   const jMinView = Math.floor(west / CELL_DEG) - 1;
   const jMaxView = Math.floor(east / CELL_DEG) + 1;
 
-  const p = toIJ(CLASSROOM_LATLNG.lat, CLASSROOM_LATLNG.lng);
-  const iMin = Math.max(p.i - MAX_RADIUS, iMinView);
-  const iMax = Math.min(p.i + MAX_RADIUS, iMaxView);
-  const jMin = Math.max(p.j - MAX_RADIUS, jMinView);
-  const jMax = Math.min(p.j + MAX_RADIUS, jMaxView);
+  const iMin = Math.max(playerIJ.i - MAX_RADIUS, iMinView);
+  const iMax = Math.min(playerIJ.i + MAX_RADIUS, iMaxView);
+  const jMin = Math.max(playerIJ.j - MAX_RADIUS, jMinView);
+  const jMax = Math.min(playerIJ.j + MAX_RADIUS, jMaxView);
 
   for (let i = iMin; i <= iMax; i++) {
     for (let j = jMin; j <= jMax; j++) {
-      const near = isNear(i, j, p.i, p.j);
+      const near = isNear(i, j, playerIJ.i, playerIJ.j);
       const v = getCellValue(i, j);
 
       const tint = tintColorFor(v);
@@ -158,7 +169,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
       }).addTo(cellLayer);
 
       rect.on("click", () => {
-        if (!isNear(i, j, p.i, p.j)) return;
+        if (!isNear(i, j, playerIJ.i, playerIJ.j)) return;
         const cv = getCellValue(i, j);
         if (inHand == null) {
           if (cv > 0) {
@@ -208,6 +219,27 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
 
   updateHUD();
 }
+
+function movePlayer(di: number, dj: number) {
+  playerIJ = { i: playerIJ.i + di, j: playerIJ.j + dj };
+  playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
+  map.setView(playerMarker.getLatLng());
+  renderGrid(map.getBounds());
+  updateHUD();
+}
+
+function mkBtn(text: string, onClick: () => void) {
+  const b = document.createElement("button");
+  b.textContent = text;
+  b.addEventListener("click", onClick);
+  controls.appendChild(b);
+}
+
+mkBtn("↑ N", () => movePlayer(+1, 0));
+mkBtn("↓ S", () => movePlayer(-1, 0));
+mkBtn("← W", () => movePlayer(0, -1));
+mkBtn("→ E", () => movePlayer(0, +1));
+mkBtn("Center", () => map.setView(playerMarker.getLatLng()));
 
 renderGrid(map.getBounds());
 map.on("moveend", () => renderGrid(map.getBounds()));
