@@ -54,5 +54,7 @@ Fix the farming bug by implementing persistent cell memory, satisfying the Flywe
 ### D3.c Steps
 
 - [x] Implement persistent cell state by removing clearVisibleState() call from movePlayer.
-- [ ] Re-implement "Victory on Collect" logic, as players can now pick up previously crafted high-value tokens.
-- [ ] Verify that modified cell values persist after moving/scrolling off-screen and back.
+- [x] Re-implement Victory logic, as players can now pick up previously crafted highvalue tokens.
+- [x] Verify that modified cell values persist after moving/scrolling off-screen and back.
+
+### D3.c complete

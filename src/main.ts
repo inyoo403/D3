@@ -178,7 +178,14 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
             inHand = cv;
             updateHUD();
             renderGrid(map.getBounds());
-            // D3.c의 2단계에서 "수집 시 승리" 로직이 여기에 추가될 것입니다.
+
+            if (inHand >= TARGET) {
+              console.log("Victory: picked up", inHand);
+              alert(
+                `🎉 Victory! You’ve reached ${inHand}!\nYou found a token you crafted earlier.\n\nPress OK to play again.`,
+              );
+              location.reload();
+            }
           }
           return;
         }
@@ -190,7 +197,9 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
           renderGrid(map.getBounds());
           if (newVal >= TARGET) {
             console.log("Victory: crafted", newVal);
-            alert(`🎉 Victory! You’ve reached ${newVal}.`);
+            alert(
+              `🎉 Victory! You’ve reached ${newVal}!\nYou crafted a new high-value token.`,
+            );
           }
           return;
         }
