@@ -35,7 +35,7 @@ Implement the fundamental map-based gameplay loop: deterministic token spawning,
 
 Support gameplay anywhere in the real world
 
-### steps
+### D3.b Steps
 
 - [x] Add UI buttons (N, S, E, W) to simulate player movement.
 - [x] Implement movePlayer function to update playerIJ coordinates.
@@ -46,3 +46,13 @@ Support gameplay anywhere in the real world
 - [x] Implement camera logic to pan only when player hits map boundary.
 
 ### D3.b complete
+
+## D3.c - Object Persistence
+
+Fix the farming bug by implementing persistent cell memory, satisfying the Flyweight pattern requirements.
+
+### D3.c Steps
+
+- [x] Implement persistent cell state by removing clearVisibleState() call from movePlayer.
+- [ ] Re-implement "Victory on Collect" logic, as players can now pick up previously crafted high-value tokens.
+- [ ] Verify that modified cell values persist after moving/scrolling off-screen and back.

@@ -27,14 +27,10 @@ function key(i: number, j: number) {
   return `${i},${j}`;
 }
 
-function clearVisibleState() {
-  overrides.clear();
-}
-
 function updateHUD() {
   hud.textContent = `In hand: ${
     inHand == null ? "—" : inHand
-  }  Pos: (${playerIJ.i}, ${playerIJ.j})`;
+  }  Pos: (${playerIJ.i}, ${playerIJ.j})  Target: ${TARGET}`;
 }
 
 function ensureMapContainer(): HTMLDivElement {
@@ -126,6 +122,7 @@ function getCellValue(i: number, j: number): number {
 function setCellValue(i: number, j: number, v: number) {
   overrides.set(key(i, j), v);
 }
+
 function isNear(i: number, j: number, ip: number, jp: number): boolean {
   return Math.abs(i - ip) <= INTERACT_RANGE &&
     Math.abs(j - jp) <= INTERACT_RANGE;
@@ -181,6 +178,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
             inHand = cv;
             updateHUD();
             renderGrid(map.getBounds());
+            // D3.c의 2단계에서 "수집 시 승리" 로직이 여기에 추가될 것입니다.
           }
           return;
         }
@@ -191,8 +189,8 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
           updateHUD();
           renderGrid(map.getBounds());
           if (newVal >= TARGET) {
-            console.log("You’ve crafted a token of value", newVal);
-            alert(`You’ve reached a token value of ${newVal}.`);
+            console.log("Victory: crafted", newVal);
+            alert(`🎉 Victory! You’ve reached ${newVal}.`);
           }
           return;
         }
@@ -226,35 +224,32 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
 
 function movePlayer(di: number, dj: number) {
   playerIJ = { i: playerIJ.i + di, j: playerIJ.j + dj };
-  const playerLatLng = cellCenter(playerIJ.i, playerIJ.j);
-  playerMarker.setLatLng(playerLatLng);
+  playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
 
   const bounds = map.getBounds();
+  const range = INTERACT_RANGE * CELL_DEG;
+  const northBound = bounds.getNorth() - range;
+  const southBound = bounds.getSouth() + range;
+  const westBound = bounds.getWest() + range;
+  const eastBound = bounds.getEast() - range;
+
   let edgeLatLng: leaflet.LatLng | null = null;
+  const playerLatLng = leaflet.latLng(cellCenter(playerIJ.i, playerIJ.j));
 
-  if (di > 0) {
-    edgeLatLng = leaflet.latLng(
-      cellCenter(playerIJ.i + INTERACT_RANGE, playerIJ.j),
-    );
-  } else if (di < 0) {
-    edgeLatLng = leaflet.latLng(
-      cellCenter(playerIJ.i - INTERACT_RANGE, playerIJ.j),
-    );
-  } else if (dj > 0) {
-    edgeLatLng = leaflet.latLng(
-      cellCenter(playerIJ.i, playerIJ.j + INTERACT_RANGE),
-    );
-  } else if (dj < 0) {
-    edgeLatLng = leaflet.latLng(
-      cellCenter(playerIJ.i, playerIJ.j - INTERACT_RANGE),
-    );
+  if (playerLatLng.lat > northBound) {
+    edgeLatLng = leaflet.latLng(playerLatLng.lat - range, playerLatLng.lng);
+  } else if (playerLatLng.lat < southBound) {
+    edgeLatLng = leaflet.latLng(playerLatLng.lat + range, playerLatLng.lng);
+  } else if (playerLatLng.lng < westBound) {
+    edgeLatLng = leaflet.latLng(playerLatLng.lat, playerLatLng.lng + range);
+  } else if (playerLatLng.lng > eastBound) {
+    edgeLatLng = leaflet.latLng(playerLatLng.lat, playerLatLng.lng - range);
   }
 
-  if (edgeLatLng && !bounds.contains(edgeLatLng)) {
-    map.panTo(playerLatLng);
+  if (edgeLatLng) {
+    map.panTo(edgeLatLng);
   }
 
-  clearVisibleState();
   renderGrid(map.getBounds());
   updateHUD();
 }
