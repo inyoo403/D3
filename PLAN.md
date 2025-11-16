@@ -58,3 +58,10 @@ Fix the farming bug by implementing persistent cell memory, satisfying the Flywe
 - [x] Verify that modified cell values persist after moving/scrolling off-screen and back.
 
 ### D3.c complete
+
+## D3.d Steps
+
+- [x] Implement state persistence using localStorage
+- [x] Add a New Game button
+- [ ] Implement Geolocation based movement
+- [ ] Implement movement mode switching
