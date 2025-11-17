@@ -63,5 +63,5 @@ Fix the farming bug by implementing persistent cell memory, satisfying the Flywe
 
 - [x] Implement state persistence using localStorage
 - [x] Add a New Game button
-- [ ] Implement Geolocation based movement
-- [ ] Implement movement mode switching
+- [x] Implement Geolocation based movement
+- [x] Implement movement mode switching

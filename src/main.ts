@@ -14,6 +14,8 @@ const CELL_DEG = 1e-4;
 const INTERACT_RANGE = 3;
 const TARGET = 32;
 const STORAGE_KEY = "d3_gameState";
+const BASE_ICON_SIZE = 48;
+const BASE_ZOOM = 19;
 
 const hud = document.createElement("div");
 hud.id = "hud";
@@ -86,8 +88,8 @@ function ensureMapContainer(): HTMLDivElement {
 
 const map = leaflet.map(ensureMapContainer(), {
   center: START_LATLNG,
-  zoom: 19,
-  maxZoom: 19,
+  zoom: BASE_ZOOM,
+  maxZoom: BASE_ZOOM,
   zoomControl: true,
   attributionControl: false,
   doubleClickZoom: false,
@@ -126,24 +128,33 @@ export function cellCenter(i: number, j: number): leaflet.LatLngExpression {
 }
 
 let playerIJ: IJ = toIJ(START_LATLNG.lat, START_LATLNG.lng);
+let geoWatchId: number | null = null;
 
 loadState();
 
-const playerIcon = leaflet.icon({
-  iconUrl: playerIconUrl,
-  iconSize: [48, 48],
-  iconAnchor: [24, 24],
-  tooltipAnchor: [0, -24],
-});
-
 const playerMarker = leaflet
   .marker(cellCenter(playerIJ.i, playerIJ.j), {
-    icon: playerIcon,
     interactive: false,
     pane: "player",
   });
 
 playerMarker.addTo(map);
+
+function updatePlayerIconSize() {
+  const currentZoom = map.getZoom();
+  const scaleFactor = Math.pow(2, currentZoom - BASE_ZOOM);
+  const newSize = BASE_ICON_SIZE * scaleFactor;
+  const newAnchor = newSize / 2;
+
+  const newPlayerIcon = leaflet.icon({
+    iconUrl: playerIconUrl,
+    iconSize: [newSize, newSize],
+    iconAnchor: [newAnchor, newAnchor],
+    tooltipAnchor: [0, -newAnchor],
+  });
+
+  playerMarker.setIcon(newPlayerIcon);
+}
 
 const cellLayer = leaflet.layerGroup().addTo(map);
 const labelLayer = leaflet.layerGroup().addTo(map);
@@ -230,7 +241,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
             if (inHand >= TARGET) {
               console.log("Victory: picked up", inHand);
               alert(
-                `Victory! You’ve reached ${inHand}!\nYou found a token you crafted earlier.\n\nPress OK to play again.`,
+                `🎉 Victory! You’ve reached ${inHand}!\nYou found a token you crafted earlier.\n\nPress OK to play again.`,
               );
               localStorage.removeItem(STORAGE_KEY);
               location.reload();
@@ -248,7 +259,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
           if (newVal >= TARGET) {
             console.log("Victory: crafted", newVal);
             alert(
-              `Victory! You’ve reached ${newVal}!\nYou crafted a new high-value token.`,
+              `🎉 Victory! You’ve reached ${newVal}!\nYou crafted a new high-value token.`,
             );
           }
           return;
@@ -283,8 +294,14 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
 
 function movePlayer(di: number, dj: number) {
   playerIJ = { i: playerIJ.i + di, j: playerIJ.j + dj };
-  playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
+  panCameraToPlayer();
+  renderGrid(map.getBounds());
+  updateHUD();
+  saveState();
+}
 
+function panCameraToPlayer() {
+  playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
   const bounds = map.getBounds();
   const range = INTERACT_RANGE * CELL_DEG;
   const northBound = bounds.getNorth() - range;
@@ -308,33 +325,96 @@ function movePlayer(di: number, dj: number) {
   if (edgeLatLng) {
     map.panTo(edgeLatLng);
   }
-
-  renderGrid(map.getBounds());
-  updateHUD();
-  saveState();
 }
 
-function mkBtn(text: string, onClick: () => void) {
+function startGeoMovement() {
+  if (!("geolocation" in navigator)) {
+    console.error("Geolocation is not supported by this browser.");
+    return;
+  }
+  if (geoWatchId !== null) return;
+
+  geoWatchId = navigator.geolocation.watchPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      const newIJ = toIJ(latitude, longitude);
+
+      if (newIJ.i !== playerIJ.i || newIJ.j !== playerIJ.j) {
+        playerIJ = newIJ;
+        panCameraToPlayer();
+        renderGrid(map.getBounds());
+        updateHUD();
+        saveState();
+      }
+    },
+    (error) => {
+      console.error("Error getting geolocation:", error);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+    },
+  );
+}
+
+function stopGeoMovement() {
+  if (geoWatchId !== null) {
+    navigator.geolocation.clearWatch(geoWatchId);
+    geoWatchId = null;
+  }
+}
+
+function mkBtn(
+  text: string,
+  onClick: () => void,
+  className: string = "",
+): HTMLButtonElement {
   const b = document.createElement("button");
   b.textContent = text;
   b.addEventListener("click", onClick);
+  if (className) {
+    b.classList.add(className);
+  }
   controls.appendChild(b);
+  return b;
 }
 
-mkBtn("↑ N", () => movePlayer(+1, 0));
-mkBtn("↓ S", () => movePlayer(-1, 0));
-mkBtn("← W", () => {
-  movePlayer(0, -1);
-});
-mkBtn("→ E", () => {
-  movePlayer(0, +1);
-});
-mkBtn("Center", () => map.setView(playerMarker.getLatLng()));
-mkBtn("New Game", () => {
-  localStorage.removeItem(STORAGE_KEY);
-  location.reload();
-});
+function initializeMovement() {
+  const moveButtons: HTMLButtonElement[] = [];
+  let isGpsMode = false;
+
+  moveButtons.push(mkBtn("↑ N", () => movePlayer(+1, 0), "move-btn"));
+  moveButtons.push(mkBtn("↓ S", () => movePlayer(-1, 0), "move-btn"));
+  moveButtons.push(mkBtn("← W", () => movePlayer(0, -1), "move-btn"));
+  moveButtons.push(mkBtn("→ E", () => movePlayer(0, +1), "move-btn"));
+  moveButtons.push(
+    mkBtn("Center", () => map.setView(playerMarker.getLatLng()), "move-btn"),
+  );
+
+  mkBtn("New Game", () => {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  });
+
+  const switchModeBtn = mkBtn("Switch to GPS", () => {
+    isGpsMode = !isGpsMode;
+    if (isGpsMode) {
+      console.log("GPS movement mode activated.");
+      moveButtons.forEach((btn) => (btn.style.display = "none"));
+      startGeoMovement();
+      switchModeBtn.textContent = "Switch to Buttons";
+    } else {
+      console.log("Button movement mode activated.");
+      moveButtons.forEach((btn) => (btn.style.display = "flex"));
+      stopGeoMovement();
+      switchModeBtn.textContent = "Switch to GPS";
+    }
+  });
+}
 
 renderGrid(map.getBounds());
 updateHUD();
+updatePlayerIconSize();
 map.on("moveend", () => renderGrid(map.getBounds()));
+map.on("zoomend", updatePlayerIconSize);
+initializeMovement();
