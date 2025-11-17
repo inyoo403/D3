@@ -59,9 +59,15 @@ Fix the farming bug by implementing persistent cell memory, satisfying the Flywe
 
 ### D3.c complete
 
-## D3.d Steps
+## D3.d - Gameplay Across Real-world Space and Time
+
+### D3.d Steps
 
 - [x] Implement state persistence using localStorage
 - [x] Add a New Game button
 - [x] Implement Geolocation based movement
 - [x] Implement movement mode switching
+- [x] Test the game on different enviorments (safari and chrome on iphone15 pro)
+- [x] Add comments about memento/flyweight
+
+### D3.d complete

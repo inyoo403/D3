@@ -1,6 +1,18 @@
-#map {
+html, body {
+  height: 100%;
   width: 100%;
-  height: 80vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
 #hud {
@@ -34,7 +46,7 @@
   cursor: pointer;
 }
 #controls button:hover {
-  background: #f3f3f3;
+  background: #f3f3ff;
 }
 
 .cellLabelWrap {

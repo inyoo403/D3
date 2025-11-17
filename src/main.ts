@@ -6,6 +6,7 @@ import luck from "./_luck.ts";
 import playerIconUrl from "./assets/player-icon.png";
 import "./style.css";
 
+// --- Constants ---
 const START_LATLNG = leaflet.latLng(
   36.997936938057016,
   -122.05703507501151,
@@ -13,10 +14,12 @@ const START_LATLNG = leaflet.latLng(
 const CELL_DEG = 1e-4;
 const INTERACT_RANGE = 3;
 const TARGET = 32;
-const STORAGE_KEY = "d3_gameState";
+// Key for localStorage.
+const GAME_STORAGE_KEY = "d3_gameState";
 const BASE_ICON_SIZE = 48;
 const BASE_ZOOM = 19;
 
+// --- DOM Elements ---
 const hud = document.createElement("div");
 hud.id = "hud";
 document.body.appendChild(hud);
@@ -25,26 +28,32 @@ const controls = document.createElement("div");
 controls.id = "controls";
 document.body.appendChild(controls);
 
+// --- Game State ---
 let inHand: number | null = null;
-const overrides = new Map<string, number>();
+let playerIJ: IJ = toIJ(START_LATLNG.lat, START_LATLNG.lng);
+let geoWatchId: number | null = null;
+
+// Flyweight: Stores intrinsic (modified) cell states.
+const modifiedCells = new Map<string, number>();
+
+// Creates a unique string key for a cell coordinate.
 function key(i: number, j: number) {
   return `${i},${j}`;
 }
 
-let playerFacing: "left" | "right" = "right";
-
-function saveState() {
+// Memento: Saves the current game state to localStorage.
+function saveGameState() {
   const state = {
     playerIJ: playerIJ,
     inHand: inHand,
-    overrides: Array.from(overrides.entries()),
-    playerFacing: playerFacing,
+    overrides: Array.from(modifiedCells.entries()),
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(state));
 }
 
-function loadState() {
-  const savedState = localStorage.getItem(STORAGE_KEY);
+// Memento: Restores game state from localStorage.
+function loadGameState() {
+  const savedState = localStorage.getItem(GAME_STORAGE_KEY);
   if (!savedState) return;
 
   try {
@@ -56,26 +65,27 @@ function loadState() {
       inHand = state.inHand;
     }
     if (state.overrides && Array.isArray(state.overrides)) {
-      overrides.clear();
+      modifiedCells.clear();
       for (const [key, value] of state.overrides) {
-        overrides.set(key, value);
+        modifiedCells.set(key, value);
       }
-    }
-    if (state.playerFacing) {
-      playerFacing = state.playerFacing;
     }
   } catch (e) {
     console.error("Failed to load state from localStorage:", e);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(GAME_STORAGE_KEY);
   }
 }
 
+// --- UI and Map Setup ---
+
+// Updates the top-left HUD text.
 function updateHUD() {
   hud.textContent = `In hand: ${
     inHand == null ? "—" : inHand
   }  Pos: (${playerIJ.i}, ${playerIJ.j})  Target: ${TARGET}`;
 }
 
+// Ensures the map container div exists.
 function ensureMapContainer(): HTMLDivElement {
   let el = document.getElementById("map") as HTMLDivElement | null;
   if (!el) {
@@ -86,6 +96,7 @@ function ensureMapContainer(): HTMLDivElement {
   return el;
 }
 
+// Initialize the Leaflet map.
 const map = leaflet.map(ensureMapContainer(), {
   center: START_LATLNG,
   zoom: BASE_ZOOM,
@@ -96,6 +107,7 @@ const map = leaflet.map(ensureMapContainer(), {
 });
 map.zoomControl.setPosition("topright");
 
+// Create map panes for layers.
 const playerPane = map.createPane("player");
 playerPane.style.zIndex = "650";
 playerPane.style.pointerEvents = "none";
@@ -104,15 +116,21 @@ const labelsPane = map.createPane("labels");
 labelsPane.style.zIndex = "660";
 labelsPane.style.pointerEvents = "none";
 
+// Add the base tile layer.
 leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
   maxNativeZoom: 19,
 }).addTo(map);
 
+// --- Coordinate and Cell Utilities ---
+
+// Defines the (i, j) grid coordinate type.
 export type IJ = { i: number; j: number };
+// Converts geographic coordinates (lat/lng) to grid coordinates (i/j).
 export function toIJ(lat: number, lng: number): IJ {
   return { i: Math.floor(lat / CELL_DEG), j: Math.floor(lng / CELL_DEG) };
 }
+// Returns the geographic bounds of a grid cell.
 export function cellBounds(
   i: number,
   j: number,
@@ -123,23 +141,23 @@ export function cellBounds(
     east = (j + 1) * CELL_DEG;
   return [[south, west], [north, east]];
 }
+// Returns the geographic center of a grid cell.
 export function cellCenter(i: number, j: number): leaflet.LatLngExpression {
   return [(i + 0.5) * CELL_DEG, (j + 0.5) * CELL_DEG];
 }
 
-let playerIJ: IJ = toIJ(START_LATLNG.lat, START_LATLNG.lng);
-let geoWatchId: number | null = null;
+// --- Player Setup ---
+loadGameState();
 
-loadState();
-
+// Create the player marker.
 const playerMarker = leaflet
   .marker(cellCenter(playerIJ.i, playerIJ.j), {
     interactive: false,
     pane: "player",
   });
-
 playerMarker.addTo(map);
 
+// Adjusts player icon size based on map zoom level.
 function updatePlayerIconSize() {
   const currentZoom = map.getZoom();
   const scaleFactor = Math.pow(2, currentZoom - BASE_ZOOM);
@@ -156,36 +174,46 @@ function updatePlayerIconSize() {
   playerMarker.setIcon(newPlayerIcon);
 }
 
+// --- Flyweight Pattern ---
+
+// Create layers for cells and labels.
 const cellLayer = leaflet.layerGroup().addTo(map);
 const labelLayer = leaflet.layerGroup().addTo(map);
 
-function spawnValue(i: number, j: number): number {
+// Flyweight: Calculates the extrinsic (shared, default) state for a cell.
+function getDefaultCellState(i: number, j: number): number {
   const r = luck(`spawn:${i},${j}`);
   if (r < 0.25) return 1;
   if (r < 0.30) return 2;
   if (r < 0.32) return 4;
   return 0;
 }
+// Returns a color tint based on the token's value.
 function tintColorFor(v: number): string {
   if (v <= 0) return "transparent";
   const level = Math.floor(Math.log2(v));
   const lightness = Math.max(35, 85 - level * 10);
   return `hsl(35 95% ${lightness})`;
 }
-function getCellValue(i: number, j: number): number {
+// Flyweight: The factory, returning modified or default state.
+function getCellState(i: number, j: number): number {
   const k = key(i, j);
-  return overrides.has(k) ? overrides.get(k)! : spawnValue(i, j);
+  return modifiedCells.has(k)
+    ? modifiedCells.get(k)!
+    : getDefaultCellState(i, j);
 }
-function setCellValue(i: number, j: number, v: number) {
-  overrides.set(key(i, j), v);
-  saveState();
+// Flyweight: Sets the intrinsic (modified) state for a cell.
+function setModifiedCellState(i: number, j: number, v: number) {
+  modifiedCells.set(key(i, j), v);
+  saveGameState();
 }
-
+// Checks if a cell is within the player's interaction range.
 function isNear(i: number, j: number, ip: number, jp: number): boolean {
   return Math.abs(i - ip) <= INTERACT_RANGE &&
     Math.abs(j - jp) <= INTERACT_RANGE;
 }
 
+// Renders all visible cells, labels, and click handlers.
 function renderGrid(bounds: leaflet.LatLngBounds) {
   cellLayer.clearLayers();
   labelLayer.clearLayers();
@@ -214,7 +242,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
   for (let i = iMin; i <= iMax; i++) {
     for (let j = jMin; j <= jMax; j++) {
       const near = isNear(i, j, playerIJ.i, playerIJ.j);
-      const v = getCellValue(i, j);
+      const v = getCellState(i, j);
 
       const tint = tintColorFor(v);
 
@@ -227,14 +255,16 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
         fillOpacity: v > 0 ? (near ? 0.35 : 0.25) : (near ? 0.08 : 0.04),
       }).addTo(cellLayer);
 
+      // --- Cell Click Handler ---
       rect.on("click", () => {
         if (!isNear(i, j, playerIJ.i, playerIJ.j)) return;
-        const cv = getCellValue(i, j);
+        const cv = getCellState(i, j);
+        // --- Pick up ---
         if (inHand == null) {
           if (cv > 0) {
-            setCellValue(i, j, 0);
+            setModifiedCellState(i, j, 0);
             inHand = cv;
-            saveState();
+            saveGameState();
             updateHUD();
             renderGrid(map.getBounds());
 
@@ -243,17 +273,18 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
               alert(
                 `🎉 Victory! You’ve reached ${inHand}!\nYou found a token you crafted earlier.\n\nPress OK to play again.`,
               );
-              localStorage.removeItem(STORAGE_KEY);
+              localStorage.removeItem(GAME_STORAGE_KEY);
               location.reload();
             }
           }
           return;
         }
+        // --- Combine ---
         if (cv === inHand && cv > 0) {
           const newVal = inHand * 2;
-          setCellValue(i, j, newVal);
+          setModifiedCellState(i, j, newVal);
           inHand = null;
-          saveState();
+          saveGameState();
           updateHUD();
           renderGrid(map.getBounds());
           if (newVal >= TARGET) {
@@ -266,6 +297,7 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
         }
       });
 
+      // --- Add Number Label ---
       if (v > 0) {
         const div = document.createElement("div");
         div.textContent = String(v);
@@ -292,14 +324,18 @@ function renderGrid(bounds: leaflet.LatLngBounds) {
   updateHUD();
 }
 
+// --- Movement ---
+
+// Moves the player by a delta (di, dj) and updates state.
 function movePlayer(di: number, dj: number) {
   playerIJ = { i: playerIJ.i + di, j: playerIJ.j + dj };
   panCameraToPlayer();
   renderGrid(map.getBounds());
   updateHUD();
-  saveState();
+  saveGameState();
 }
 
+// Pans the map camera if the player approaches the edge.
 function panCameraToPlayer() {
   playerMarker.setLatLng(cellCenter(playerIJ.i, playerIJ.j));
   const bounds = map.getBounds();
@@ -327,6 +363,7 @@ function panCameraToPlayer() {
   }
 }
 
+// Starts tracking the user's GPS location.
 function startGeoMovement() {
   if (!("geolocation" in navigator)) {
     console.error("Geolocation is not supported by this browser.");
@@ -344,7 +381,7 @@ function startGeoMovement() {
         panCameraToPlayer();
         renderGrid(map.getBounds());
         updateHUD();
-        saveState();
+        saveGameState();
       }
     },
     (error) => {
@@ -357,6 +394,7 @@ function startGeoMovement() {
   );
 }
 
+// Stops tracking the user's GPS location.
 function stopGeoMovement() {
   if (geoWatchId !== null) {
     navigator.geolocation.clearWatch(geoWatchId);
@@ -364,6 +402,7 @@ function stopGeoMovement() {
   }
 }
 
+// Helper function to create and append a new button.
 function mkBtn(
   text: string,
   onClick: () => void,
@@ -379,6 +418,7 @@ function mkBtn(
   return b;
 }
 
+// Facade: Sets up movement mode on load.
 function initializeMovement() {
   const moveButtons: HTMLButtonElement[] = [];
   let isGpsMode = false;
@@ -392,7 +432,7 @@ function initializeMovement() {
   );
 
   mkBtn("New Game", () => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(GAME_STORAGE_KEY);
     location.reload();
   });
 
@@ -412,6 +452,7 @@ function initializeMovement() {
   });
 }
 
+// --- Initialize Game ---
 renderGrid(map.getBounds());
 updateHUD();
 updatePlayerIconSize();
